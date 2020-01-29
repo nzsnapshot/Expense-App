@@ -8,10 +8,19 @@ from ttkthemes import ThemedStyle
 import decimal
 import logging
 import sys
+import os
 import random
 import sqlite3
 db = Database('saved.db')
 
+def restart_program():
+    """Restarts the current program.
+    Note: this function does not return. Any cleanup action (like
+    saving data) must be done before calling this function."""
+    python = sys.executable
+    os.execl(python, python, * sys.argv)
+
+    
 class Master(tk.Tk):
     def __init__(self, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
@@ -66,6 +75,9 @@ class HomePage(tk.Frame):
         
         button4 = ttk.Button(self, text="Pricing", width=15, command=lambda: controller.show_frame(Pricing))
         button4.grid(row=2, column=1, padx=25, pady=25)
+        ttk.Button(self, text="Restart", command=restart_program).grid(row=2, column=2)
+
+
     
     
     def create_widgets(self):
@@ -188,9 +200,13 @@ class Sales(tk.Frame):
         self.refreshButton = ttk.Button(self, width=10, text='Refresh', command=self.refresh)
         self.refreshButton.grid(row=4, column=0)
 
-        # Refresh Button
+        # Remove Button
         self.removeButton = ttk.Button(self, width=10, text='Remove', command=self.remove)
         self.removeButton.grid(row=6, column=0)
+
+        # Tick Button
+        self.tickButton = ttk.Button(self, width=10, text='Tick', command='')#self.tick
+        self.tickButton.grid(row=7, column=0)
 
         # Mitsi Entry
         self.mitsi_entry = tk.DoubleVar()
@@ -213,12 +229,31 @@ class Sales(tk.Frame):
         self.tree.column('#5', stretch=tk.YES, minwidth=50, width=100, anchor='center')
         self.tree.grid(row=4, column=1, columnspan=10, padx=20, pady=20, rowspan=5)
 
+
     def populateReportList(self):
         for self.row in db.reportfetch():
-            self.tree.insert('', 0, text=self.row[0], values=(self.row[1], self.row[2], self.row[3], self.row[4], self.row[5]))
+            self.tree.insert('', 0, text=self.row[0], values=(self.row[1], self.row[2], self.row[3], self.row[4], self.row[5], self.row[6]))
 
     def remove(self):
-        pass
+        self.conn = sqlite3.connect('saved.db')
+        self.s_item = self.tree.focus()
+        self.delete_list = []
+        tree = self.tree.item(self.s_item)
+        for k, v in tree.items():
+            self.delete_list.append(v)
+        deleted = self.delete_list
+        print(f"Successfully removed from the Database: Name: {deleted[0]} {deleted[2]} {deleted[1]}")
+        db.remove_profit(self.row[4], self.row[5])
+        self.cur = self.conn.cursor()
+        for self.selected_item in self.tree.selection():
+            self.cur.execute("DELETE FROM report WHERE id=?", (self.row[6],))
+            self.conn.commit()
+           
+        self.conn.close()
+        for i in self.tree.get_children():
+            self.tree.delete(i)
+        self.populateReportList()
+
 
     def refresh(self):
         value, price = [], []
@@ -250,7 +285,10 @@ class Sales(tk.Frame):
             amounts = self.amount - self.dollars
             self.profitEntry.delete(0, END)
             self.profitEntry.insert(END, amounts)
-        
+        for i in self.tree.get_children():
+            self.tree.delete(i)
+        self.populateReportList()
+
     def insert(self):
         try:
             payee = self.personEntry.get()
@@ -269,7 +307,7 @@ class Sales(tk.Frame):
                 db.transaction(amount, fromm, to)
                 db.positive(category, profit)
                 print(f"Successfully transfered from accounts {fromm} to {to} ")
-                print(f"Successfully added {profit} to the account {category}")
+                print(f"Successfully added {profit} to the account {to}")
                 db.insert(payee, fromm, to, amount, profit, category, random.randint(1, 10000))
                 self.personEntry.delete(0, END)
                 self.profitEntry.delete(0, END)
@@ -285,7 +323,6 @@ class Sales(tk.Frame):
         except sqlite3.OperationalError:
             print("Error please restart programme")
 
-       
 
 
 class Owing(tk.Frame):
@@ -294,11 +331,10 @@ class Owing(tk.Frame):
         self.style = ThemedStyle(self)
         self.style.set_theme('scidblue')
         self.controller = controller
-
+        self.owing_widgets()
 
         self.button1 = ttk.Button(self, text="Back to Home", command=lambda: controller.show_frame(HomePage))
         self.button1.place(x=25,y=25)
-
 
     def owing_widgets(self):
         # Owing Label
@@ -306,8 +342,54 @@ class Owing(tk.Frame):
         self.ticklistLabel.grid(row=0, column=0, pady=10, columnspan=10)
         self.ticklistLabel.configure(foreground='green')
         # Outstanding Button
-        self.tickButton = ttk.Button(self, width=10, text='Tick', command="")
-        self.tickButton.grid(row=0, column=0, padx=50, pady=25)
+
+        self.payeeLabel = tk.Label(self, text='Payee', font=('Arial 10 bold'))
+        self.payeeLabel.grid(row=2, column=1)
+        self.outstandingLabel = tk.Label(self, text='Outstanding', font=('Arial 10 bold'))
+        self.outstandingLabel.grid(row=2, column=2)
+        self.payingLabel = tk.Label(self, text='Paying', font=('Arial 10 bold'))
+        self.payingLabel.grid(row=2, column=3)
+
+        self.paidButton = ttk.Button(self, width=10, text='Paid', command="")
+        self.paidButton.grid(row=3, column=4, pady=25)
+
+        self.payee_entry = tk.StringVar()
+        self.payeeEntry = ttk.Entry(self, width=10, textvariable=self.payee_entry)
+        self.payeeEntry.grid(row=3, column=1, pady=25)
+
+        self.payee_entry = tk.StringVar()
+        self.payeeEntry = ttk.Entry(self, width=10, textvariable=self.payee_entry)
+        self.payeeEntry.grid(row=3, column=3, pady=25)
+
+
+        self.balance_entry = tk.IntVar()
+        self.balanceEntry = ttk.Entry(self, width=10, textvariable=self.balance_entry)
+        self.balanceEntry.grid(row=3, column=2, pady=25)
+
+        # Tree View
+        self.owingTree = ttk.Treeview(self, height=10, columns=('id', 'title'))
+        self.owingTree.heading('#0', text='Title', anchor=tk.CENTER)
+        self.owingTree.heading('#1', text='Price', anchor=tk.CENTER)
+        self.owingTree.heading('#2', text='id', anchor=tk.CENTER)
+        self.owingTree.column('#0', stretch=tk.YES, minwidth=50, width=100, anchor='center')
+        self.owingTree.column('#1', stretch=tk.YES, minwidth=50, width=100, anchor='center')
+        self.owingTree.column('#2', stretch=tk.YES, minwidth=50, width=100, anchor='center')
+        self.owingTree.grid(row=1, column=0, columnspan=5, padx=150, pady=15)
+
+        self.owingTree.bind('<ButtonRelease-1>', self.select_item)
+
+
+    def select_item(self, event):
+        self.selectItem = self.owingTree.focus()
+        self.my_list = []
+        tree = self.owingTree.item(self.selectItem)
+        for k, v in tree.items():
+            self.my_list.append(v)
+        derp = self.my_list[2]
+        yeet = derp[0]
+        cars = self.my_list[0]
+
+
 
 class Summary(tk.Frame):
     def __init__(self, parent, controller):

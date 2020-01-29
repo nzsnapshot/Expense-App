@@ -47,6 +47,11 @@ class Database:
         self.cur.execute(f"UPDATE accounts SET balance = balance + {amount} WHERE account = '{accountz}'")
         self.conn.commit()
 
+    def remove_profit(self, amount, category):
+        self.cur.execute("SELECT * FROM positive")
+        self.cur.execute(f"UPDATE positive SET balance = balance - {amount} WHERE category = '{category}'")
+        self.conn.commit()
+
     def positive(self, categories, profit):
         self.cur.execute("SELECT * FROM positive")
         # self.cur.execute("INSERT INTO positive VALUES (?, ?)", (category, profit))
