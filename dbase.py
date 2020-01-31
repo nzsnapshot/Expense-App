@@ -23,7 +23,7 @@ class Database:
         return rows
 
     def insert(self, payee, fromm, to, amount, category, profit, id):
-        self.cur.execute("INSERT INTO report VALUES (?, ?, ?, ?, ?, ?, ?)", ( payee, fromm, to, amount, category, profit, id))
+        self.cur.execute("INSERT INTO report VALUES (?, ?, ?, ?, ?, ?, ?)", (payee, fromm, to, amount, category, profit, id))
         self.conn.commit()
 
     def remove(self, id):
@@ -47,9 +47,15 @@ class Database:
         self.cur.execute(f"UPDATE accounts SET balance = balance + {amount} WHERE account = '{accountz}'")
         self.conn.commit()
 
-    def remove_profit(self, amount, category):
+    def remove_profit(self, amount, category, account):
         self.cur.execute("SELECT * FROM positive")
         self.cur.execute(f"UPDATE positive SET balance = balance - {amount} WHERE category = '{category}'")
+        self.cur.execute(f"UPDATE accounts SET balance = balance - {amount} WHERE account = '{account}'")
+        self.conn.commit()
+
+    def remove_amount_fromto(self, amount, account):
+        self.cur.execute("SELECT * FROM accounts")
+        self.cur.execute(f"UPDATE accounts SET balance = balance - {amount} WHERE account = '{account}'")
         self.conn.commit()
 
     def positive(self, categories, profit):
@@ -67,7 +73,30 @@ class Database:
     def removeReport(self):
         self.cur.execute("SELECT ")
 
+    def outstanding_insert(self, payee, balance):
+        self.cur.execute("SELECT payee FROM outstanding")
+        person = {people[0] for people in self.cur.fetchall()}
+        if payee in person:
+            print('Works')
+            self.cur.execute(f"UPDATE outstanding SET balance = balance + {balance} WHERE payee = '{payee}'")
+        else:
+            self.cur.execute(f"INSERT INTO outstanding VALUES (?, ?)",  (payee, balance))
+        self.conn.commit()
+
+    def outstanding_fetch(self):
+        self.cur.execute("SELECT * FROM outstanding")
+        rows = self.cur.fetchall()
+        return rows
 
 
+
+    def outstanding_paid(self):
+        self.cur.execute("SELECT")
+
+
+    # Need to add removing from the database when removing from reports
+
+
+            
     def __del__(self):
         self.conn.close()

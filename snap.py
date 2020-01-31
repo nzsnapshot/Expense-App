@@ -103,7 +103,7 @@ class Sales(tk.Frame):
         self.controller = controller
         self.create_widgets()
         self.refresh()
-        self.populateReportList()
+        # self.populateReportList()
 
         self.transaction_accounts = []
         self.transaction_balances = []
@@ -204,10 +204,6 @@ class Sales(tk.Frame):
         self.removeButton = ttk.Button(self, width=10, text='Remove', command=self.remove)
         self.removeButton.grid(row=6, column=0)
 
-        # Tick Button
-        self.tickButton = ttk.Button(self, width=10, text='Tick', command='')#self.tick
-        self.tickButton.grid(row=7, column=0)
-
         # Mitsi Entry
         self.mitsi_entry = tk.DoubleVar()
         self.mitsiEntry = ttk.Entry(self, width=10, textvariable=self.mitsi_entry)
@@ -228,32 +224,46 @@ class Sales(tk.Frame):
         self.tree.column('#4', stretch=tk.YES, minwidth=50, width=100, anchor='center')
         self.tree.column('#5', stretch=tk.YES, minwidth=50, width=100, anchor='center')
         self.tree.grid(row=4, column=1, columnspan=10, padx=20, pady=20, rowspan=5)
-
+        self.tree.bind('<ButtonRelease-1>', self.select_item)
 
     def populateReportList(self):
         for self.row in db.reportfetch():
             self.tree.insert('', 0, text=self.row[0], values=(self.row[1], self.row[2], self.row[3], self.row[4], self.row[5], self.row[6]))
+                                        # Payeee                #from       #to             #amount     #profit       #category     #id
 
+
+    def deleteallItem(self):
+        confirmed = tk.messagebox.askyesno('Please Confirm','Do you want to delete all?')
+        # you forgot to add the : at the end of the if statement. You were then calling this function. Which didn't delete anything
+        # I made a function that deletes everything if confirmed == True:
+        if confirmed == True:
+            self.remove()
+        elif confirmed == False:
+            print('Ok')
     def remove(self):
-        self.conn = sqlite3.connect('saved.db')
-        self.s_item = self.tree.focus()
-        self.delete_list = []
-        tree = self.tree.item(self.s_item)
-        for k, v in tree.items():
-            self.delete_list.append(v)
-        deleted = self.delete_list
-        print(f"Successfully removed from the Database: Name: {deleted[0]} {deleted[2]} {deleted[1]}")
-        db.remove_profit(self.row[4], self.row[5])
-        self.cur = self.conn.cursor()
-        for self.selected_item in self.tree.selection():
-            self.cur.execute("DELETE FROM report WHERE id=?", (self.row[6],))
-            self.conn.commit()
-           
-        self.conn.close()
-        for i in self.tree.get_children():
-            self.tree.delete(i)
-        self.populateReportList()
-
+        confirmed = tk.messagebox.askyesno('Please Confirm','Do you want to delete this item?')
+        if confirmed == True:            
+            self.conn = sqlite3.connect('saved.db')
+            self.s_item = self.tree.focus()
+            self.delete_list = []
+            tree = self.tree.item(self.s_item)
+            for k, v in tree.items():
+                self.delete_list.append(v)
+            deleted = self.delete_list
+            print(f"Successfully removed from the Database: Name: {deleted[0]} {deleted[2]} {deleted[1]}")
+            db.remove_profit(self.row[4], self.row[5], self.row[3])
+            db.remove_amount_fromto(self.row[3], self.derp)
+            self.cur = self.conn.cursor()
+            for self.selected_item in self.tree.selection():
+                self.cur.execute("DELETE FROM report WHERE id=?", (self.derp,))
+                self.conn.commit()
+            
+            self.conn.close()
+            for i in self.tree.get_children():
+                self.tree.delete(i)
+            self.populateReportList()
+        elif confirmed == False:
+            print('Ok')
 
     def refresh(self):
         value, price = [], []
@@ -285,9 +295,26 @@ class Sales(tk.Frame):
             amounts = self.amount - self.dollars
             self.profitEntry.delete(0, END)
             self.profitEntry.insert(END, amounts)
+        self.refresh_list()
+
+    def refresh_list(self):
         for i in self.tree.get_children():
             self.tree.delete(i)
         self.populateReportList()
+
+    def insert_into_table(self):
+        payee = self.personEntry.get()
+        fromm = self.from_combo.get()
+        to = self.to_combo.get()
+        amount = self.amount_entry.get()
+        profit = self.profit_entry.get()
+        category = self.category_combo.get()
+        db.transaction(amount, fromm, to)
+        db.positive(category, profit)
+        db.insert(payee, fromm, to, amount, profit, category, random.randint(1, 10000))
+        print(f"Successfully transfered from accounts {fromm} to {to} ")
+        print(f"Successfully added {profit} to the account {to}")
+       
 
     def insert(self):
         try:
@@ -296,32 +323,46 @@ class Sales(tk.Frame):
             to = self.to_combo.get()
             amount = self.amount_entry.get()
             profit = self.profit_entry.get()
-
             category = self.category_combo.get()
             lst = [payee, fromm, to, amount, category]
-            for self.x in lst:
-                if self.x == '':
-                    messagebox.showinfo("Title", f"You cannot have blank entry boxes")
-                    sys.exit()
-            try:
-                db.transaction(amount, fromm, to)
-                db.positive(category, profit)
-                print(f"Successfully transfered from accounts {fromm} to {to} ")
-                print(f"Successfully added {profit} to the account {to}")
-                db.insert(payee, fromm, to, amount, profit, category, random.randint(1, 10000))
-                self.personEntry.delete(0, END)
-                self.profitEntry.delete(0, END)
-                self.fromCombo.delete(0, END)
-                self.toCombo.delete(0, END)
-                self.amountEntry.delete(0, END)
-                self.categoryCombo.delete(0, END)
-            except sqlite3.IntegrityError:
-                print(f"Please restart the programme, you tried to transfer an amount more than what is in there")
-            for i in self.tree.get_children():
-                self.tree.delete(i)
-            self.populateReportList()
+            # for self.x in lst:
+            #     if self.x == '':
+            #         messagebox.showinfo("Title", f"You cannot have blank entry boxes")
+            #         restart_program()
+            if to == 'Toyota':
+                self.insert_into_table()
+                db.outstanding_insert(payee, amount)
+                print(f"Successfully added to {payee}'s oustanding balance. ")
+                self.refresh_list()
+            else:
+                try:
+                    self.insert_into_table()
+                    # self.personEntry.delete(0, END)
+                    # self.profitEntry.delete(0, END)
+                    # self.fromCombo.delete(0, END)
+                    # self.toCombo.delete(0, END)
+                    # self.amountEntry.delete(0, END)
+                    # self.categoryCombo.delete(0, END)
+                except sqlite3.IntegrityError:
+                    print(f"Please restart the programme, you tried to transfer an amount more than what is in there")
+                self.refresh_list()
         except sqlite3.OperationalError:
-            print("Error please restart programme")
+                print("Error please restart programme")
+
+
+    def select_item(self, event):
+        self.selectItem = self.tree.focus()
+        self.my_list = []
+        tree = self.tree.item(self.selectItem)
+        for k, v in tree.items():
+            self.my_list.append(v)
+        self.derp = self.my_list[2][5]
+        # yeet = derp[0]
+        cars = self.my_list[0]
+        print(self.derp)
+        # # print(yeet)
+        # print(cars)
+
 
 
 
@@ -332,6 +373,7 @@ class Owing(tk.Frame):
         self.style.set_theme('scidblue')
         self.controller = controller
         self.owing_widgets()
+        self.populate_owing()
 
         self.button1 = ttk.Button(self, text="Back to Home", command=lambda: controller.show_frame(HomePage))
         self.button1.place(x=25,y=25)
@@ -367,16 +409,18 @@ class Owing(tk.Frame):
         self.balanceEntry.grid(row=3, column=2, pady=25)
 
         # Tree View
-        self.owingTree = ttk.Treeview(self, height=10, columns=('id', 'title'))
-        self.owingTree.heading('#0', text='Title', anchor=tk.CENTER)
-        self.owingTree.heading('#1', text='Price', anchor=tk.CENTER)
-        self.owingTree.heading('#2', text='id', anchor=tk.CENTER)
+        self.owingTree = ttk.Treeview(self, height=10, columns=('outstanding'))
+        self.owingTree.heading('#0', text='Payee', anchor=tk.CENTER)
+        self.owingTree.heading('#1', text='Balance', anchor=tk.CENTER)
         self.owingTree.column('#0', stretch=tk.YES, minwidth=50, width=100, anchor='center')
         self.owingTree.column('#1', stretch=tk.YES, minwidth=50, width=100, anchor='center')
-        self.owingTree.column('#2', stretch=tk.YES, minwidth=50, width=100, anchor='center')
         self.owingTree.grid(row=1, column=0, columnspan=5, padx=150, pady=15)
 
         self.owingTree.bind('<ButtonRelease-1>', self.select_item)
+
+    def populate_owing(self):
+        for self.row in db.outstanding_fetch():
+            self.owingTree.insert('', 0, text=self.row[0], values=self.row[1])
 
 
     def select_item(self, event):
@@ -488,7 +532,8 @@ class Pricing(tk.Frame):
 
 if __name__ == "__main__":
     app = Master()
-    app.title('Runescape Services')
+    app.iconbitmap(r'money.ico')
+    app.title('My Expense App')
     app.mainloop()
 
 
