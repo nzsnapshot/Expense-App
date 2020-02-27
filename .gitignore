@@ -6,7 +6,19 @@ __pycache__/
 # C extensions
 *.so
 saved.db
-
+stringu.txt
+stringu
+stringp.txt
+stringp
+keyu.txt
+keyu
+keyp.txt
+keyp
+key.txt
+test.py
+string.txt
+.vscode
+CSV
 # Distribution / packaging
 .Python
 build/
